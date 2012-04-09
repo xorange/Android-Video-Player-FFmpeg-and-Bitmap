@@ -1,0 +1,12 @@
+prefix=
+exec_prefix=
+libdir=${pcfiledir}
+includedir=.
+
+Name: libavformat
+Description: FFmpeg container format library
+Version: 53.21.0
+Requires: libavcodec = 53.37.0
+Conflicts:
+Libs: ${libdir}/libavformat.a 
+Cflags: -I${includedir}
