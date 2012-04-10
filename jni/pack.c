@@ -7,7 +7,7 @@
 #include <pthread.h>
 
 #include <android/log.h>
-#define INFO(msg) __android_log_write(ANDROID_LOG_INFO,"pack.c",msg);
+#define INFO(msg) __android_log_write(ANDROID_LOG_INFO,"native",msg);
 
 #define RE(msg) return (*env)->NewStringUTF(env, msg);
 
@@ -18,10 +18,17 @@ AVFormatContext *pFormatCtx;
 int             i, videoStream, frameCount = 0;
 AVCodecContext  *pCodecCtx;
 AVCodec         *pCodec;
-AVFrame         *pFrame; 
+AVFrame         *pFrame;
 AVPacket        packet;
 int             frameFinished;
 float           aspect_ratio;
+
+AVFrame         *pFrameRGB;
+int             numBytes;
+uint8_t         *buffer;
+// BE for Big Endian, LE for Little Endian
+int dstFmt = PIX_FMT_RGB565;
+
 struct SwsContext *img_convert_ctx;
 int width, height, bit_rate;
 
@@ -166,6 +173,26 @@ jint Java_sysu_ss_xu_FFmpeg_getBitRate( JNIEnv* env, jobject thiz )
 	return pCodecCtx->bit_rate;
 }
 
+jboolean Java_sysu_ss_xu_FFmpeg_allocateBuffer( JNIEnv* env, jobject thiz )
+{
+	// Allocate an AVFrame structure
+	pFrameRGB=avcodec_alloc_frame();
+	if(pFrameRGB==NULL)
+		return 0;
+
+	// Determine required buffer size and allocate buffer
+	numBytes=avpicture_get_size(dstFmt, pCodecCtx->width,
+			      pCodecCtx->height);
+	buffer=(uint8_t *)av_malloc(numBytes * sizeof(uint8_t));
+
+	// Assign appropriate parts of buffer to image planes in pFrameRGB
+	// Note that pFrameRGB is an AVFrame, but AVFrame is a superset
+	// of AVPicture
+	avpicture_fill((AVPicture *)pFrameRGB, buffer, dstFmt, pCodecCtx->width, pCodecCtx->height);
+
+	return 1;
+}
+
 /* for each decoded frame */
 jbyteArray Java_sysu_ss_xu_FFmpeg_getNextDecodedFrame( JNIEnv* env, jobject thiz )
 {
@@ -182,56 +209,52 @@ while(av_read_frame(pFormatCtx, &packet)>=0) {
 		if(frameFinished) {
 INFO("got a frame");
 
+/*
 		AVPicture pict;
 
 		pict.linesize[0] = width;
-		pict.linesize[1] = width / 2;
-		pict.linesize[2] = width / 2;
-/*
-// tested ok.
-		int pixelData1[ width * height ];
-		int pixelData2[ width * height ];
-		int pixelData3[ width * height ];
-		pict.data[0] = pixelData1;
-		pict.data[1] = pixelData2;
-		pict.data[2] = pixelData3;
-*/
+		pict.linesize[1] = width;
+		pict.linesize[2] = width;
 
-		/* tested ok, too. Yay! */
-		uint8_t pixelData[ width * height * 3 ];		
+		// tested ok, too. Yay!
+		uint8_t pixelData[ width * height * 3 ];
+	
 		pict.data[0] = &pixelData[ 0 ];
 		pict.data[1] = &pixelData[ width * height ];
 		pict.data[2] = &pixelData[ width * height * 2 ];
+		//pict.data[3] = &pixelData[ width * height * 3 ];
+*/
 		
-INFO("memory prepared");
-
-		int dstFmt = PIX_FMT_YUV420P;
 
 		img_convert_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, dstFmt, SWS_BICUBIC, NULL, NULL, NULL);
 
 		sws_scale(img_convert_ctx, (const uint8_t* const*)pFrame->data, pFrame->linesize,
-	 0, pCodecCtx->height, pict.data, pict.linesize);
-INFO("frame format converted");
-		sprintf(debugMsg, "*(pict.data[0]) %d", *(pict.data[0]));	
+	 0, pCodecCtx->height, pFrameRGB->data, pFrameRGB->linesize);
+
+/*
+		sprintf(debugMsg, "*(pict.data[0]) %d", *(pFrameRGB->data[0]));	
 		INFO(debugMsg);
-		sprintf(debugMsg, "*(pict.data[1]) %d", *(pict.data[1]));	
+		sprintf(debugMsg, "*(pict.data[1]) %d", *(pFrameRGB->data[1]));	
 		INFO(debugMsg);
-		sprintf(debugMsg, "*(pict.data[2]) %d", *(pict.data[2]));	
+		sprintf(debugMsg, "*(pict.data[2]) %d", *(pFrameRGB->data[2]));	
 		INFO(debugMsg);
-		sprintf(debugMsg, "sizeof %d %d", sizeof(pixelData[0]), sizeof(uint8_t));
+		sprintf(debugMsg, "*(pict.data[3]) %d", *(pFrameRGB->data[3]));	
 		INFO(debugMsg);
-		sprintf(debugMsg, "*pixelData %d", *pixelData);
+		sprintf(debugMsg, "*(pict.linesize[0]) %d", pFrameRGB->linesize[0]);
 		INFO(debugMsg);
+		sprintf(debugMsg, "*(pict.linesize[1]) %d", pFrameRGB->linesize[1]);
+		INFO(debugMsg);
+		sprintf(debugMsg, "*(pict.linesize[2]) %d", pFrameRGB->linesize[2]);
+		INFO(debugMsg);
+		sprintf(debugMsg, "*(pict.linesize[3]) %d", pFrameRGB->linesize[3]);
+		INFO(debugMsg);
+*/
 
 ++frameCount;
-INFO("++frameCount and return");
 
 		/* uint8_t == unsigned 8 bits == jboolean */
-		jbyteArray nativePixels = (*env)->NewByteArray(env, width * height * 3);
-INFO("where failed 1");
-		(*env)->SetByteArrayRegion(env, nativePixels, 0, width * height * 3, pixelData);
-INFO("where failed 2");
-
+		jbyteArray nativePixels = (*env)->NewByteArray(env, numBytes);
+		(*env)->SetByteArrayRegion(env, nativePixels, 0, numBytes, buffer);
 		return nativePixels;
 		}
 

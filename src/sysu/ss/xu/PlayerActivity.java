@@ -1,5 +1,8 @@
 package sysu.ss.xu;
 
+import java.nio.ByteBuffer;
+import java.nio.ShortBuffer;
+
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -24,15 +27,21 @@ public class PlayerActivity extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-      
+//        test();
         
-//        TextView  tv = new TextView(this);
-//        setContentView(tv);
-//        
-        FFmpeg ff = new FFmpeg();
+        DisplayMetrics dm = new DisplayMetrics();  
+        this.getWindowManager().getDefaultDisplay().getMetrics(dm);
+        setContentView(new PlayerView(this, dm.widthPixels, dm.heightPixels));
         
         
-        ff.openFile("/mnt/sdcard/ipod.m4v");
+    }
+    
+    
+    private void test() {
+    	FFmpeg ff = new FFmpeg();
+        
+        
+        ff.openFile("/mnt/sdcard/mpeg2.m2v");
         int width = ff.getWidth();
         int height = ff.getHeight();
         int bitrate = ff.getBitRate();
@@ -40,94 +49,136 @@ public class PlayerActivity extends Activity {
         Log.i("main", "w " + width);
         Log.i("main", "h " + height);
         Log.i("main", "br " + bitrate);
+        int linesize = width * height;
         byte[] pixels = ff.getNextDecodedFrame();
-        Log.i("main", "" + pixels.length);
-		Log.i("main", "0 " + pixels[0]);
-		Log.i("main", "1 " + pixels[width * height]);
-		Log.i("main", "2 " + pixels[width * height * 2]);
-        
-        
-        
-        
-        
-        
-        //setContentView(R.layout.main);
-//        DisplayMetrics dm = new DisplayMetrics();  
-//        this.getWindowManager().getDefaultDisplay().getMetrics(dm);
-//        setContentView(new PlayerView(this, dm.widthPixels, dm.heightPixels));
-//        DisplayMetrics dm = new DisplayMetrics();  
-//        this.getWindowManager().getDefaultDisplay().getMetrics(dm);
-//        gv = new GameView(this,dm.widthPixels,dm.heightPixels);  
-//        setContentView(gv);  
-    }
-    
-    
-    class PlayerView extends View implements Runnable {     	  
+	}
+
+
+	class PlayerView extends View implements Runnable {     	  
     	
         private Bitmap bitmap;
 		private Paint p;
 		private FFmpeg ff;
 		private int width;
 		private int height;
-		private int bitrate;
-		private int[] framePixels;
 		private int bitmapWidth;
+		private byte[] nativePixels;
+		private int[] pixels;
+		private ByteBuffer buffer;
 
 
 		public PlayerView(Context context, int DisplayWidth, int DisplayHeight) {  
             super(context);
             
-            bitmap = Bitmap.createBitmap(DisplayWidth, DisplayHeight, Bitmap.Config.RGB_565);
             //b = BitmapFactory.decodeResource(this.getResources(), R.drawable.qq);
             p = new Paint();
             
-            Log.i("pp", "w: " + DisplayWidth + " h: " + DisplayHeight);
-
-            bitmapWidth = bitmap.getWidth();
-            bitmap.setHasAlpha(true);           
-            
-            byte r = 0;	r <<= 3;
-            byte g = (byte) 255;	g <<= 2;
-            byte b = 0;	b <<= 3;
-            int pixelValue=Color.argb(255, r, g, b);
-            for(int j = 0; j < 30; j++)
-            {
-            	for(int i = 0; i < 30; i++) {
-            		bitmap.setPixel(30 + i, 30 + j, pixelValue);
-                }
-            }            
+//            testSetPixel();
             
             ff = new FFmpeg();
-            ff.openFile("/mnt/sdcard/ipod.m4v");
+            ff.openFile("/mnt/sdcard/mpeg2.m2v");
+            //ff.openFile("/mnt/sdcard/a.mp4");
             width = ff.getWidth();
             height = ff.getHeight();
-            bitrate = ff.getBitRate();
             
-            Log.i("bm", "w " + width);
-            Log.i("bm", "h " + height);
-            Log.i("bm", "br " + bitrate);
+//            bitmap = Bitmap.createBitmap(DisplayWidth, DisplayHeight, Bitmap.Config.RGB_565);
+            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
+            
+            Log.i("view", "ff w " + width);
+            Log.i("view", "ff h " + height);
+            
+            nativePixels = ff.getNextDecodedFrame();
+            Log.i("view", "native.length " + nativePixels.length);
+            Log.i("view", "needed bytes of pixels " + (width * height * 2));
+            
+//            buffer = ShortBuffer.allocate(width * height);
+            buffer = ByteBuffer.wrap(nativePixels);
+            
+//        	renderCopy();
+//            testRenderCopy();
+            
+            bitmap.copyPixelsFromBuffer(buffer);
             
             /* 开启线程 */  
             new Thread(this).start();  
             
             Log.i("player view", "constructor");
-        }      
-        public void onDraw(Canvas canvas){
+        } 
+		
+        private void testRenderCopy() {
+			// TODO Auto-generated method stub
+        	int rIndex, gIndex, bIndex;
+        	short temp;
+        	rIndex = 0;
+        	gIndex = width * height;
+        	bIndex = width * height * 2;
+        	temp = 0x0000;
+        	
+        	Log.i("test", "native R " + Integer.toHexString(nativePixels[rIndex]));
+        	Log.i("test", "native G " + Integer.toHexString(nativePixels[gIndex]));
+        	Log.i("test", "native B " + Integer.toHexString(nativePixels[bIndex]));
+        	
+        	temp = (short) (nativePixels[rIndex] << 11);
+        	Log.i("test", Integer.toHexString(temp));
+    		temp = (short) (temp | ((short) (nativePixels[gIndex] << 5)));
+    		Log.i("test", Integer.toHexString(temp));
+    		temp = (short) (temp | ((short) (nativePixels[bIndex])));
+    		Log.i("test", Integer.toHexString(temp));
+		}
+
+		private void testSetPixel() {
+        	 bitmap.setHasAlpha(true);
+             
+             byte r = 0;	r <<= 3;
+             byte g = (byte) 255;	g <<= 2;
+             byte b = 0;	b <<= 3;
+             int pixelValue=Color.argb(255, r, g, b);
+             for(int j = 0; j < 30; j++)
+             {
+             	for(int i = 0; i < 30; i++) {
+             		bitmap.setPixel(30 + i, 30 + j, pixelValue);
+                 }
+             }
+		}
+        
+		public void onDraw(Canvas canvas){
         	super.onDraw(canvas);  
         	
-        	canvas.drawColor(Color.RED);
+        	canvas.drawColor(Color.GREEN);
         	
-        	//framePixels = ff.getNextDecodedFrame();
-        	ff.getNextDecodedFrame();
-        	//bitmap.setPixels(framePixels, 0, bitmapWidth, 0, 0, width, height);
-            
-            //canvas.drawBitmap(bitmap, 0, 0, p);
+        	nativePixels = ff.getNextDecodedFrame();
+        	buffer = ByteBuffer.wrap(nativePixels);
+        	bitmap.copyPixelsFromBuffer(buffer);
+        	
+            canvas.drawBitmap(bitmap, 0, 0, p);
         	
         	
         }
         
         
-        public void run() {  
+        private void renderCopy() {
+			//TODO
+        	int rIndex, gIndex, bIndex;
+        	short temp;
+        	rIndex = 0;
+        	gIndex = width * height;
+        	bIndex = width * height * 2;
+        	temp = 0x0000;
+        	
+        	buffer.rewind();
+        	for(int loop = 0; loop < buffer.capacity(); loop++) {
+        		temp = (short) (nativePixels[rIndex] << 11);
+        		temp = (short) (temp | ((short) (nativePixels[gIndex] << 5)));
+        		temp = (short) (temp | ((short) (nativePixels[bIndex])));
+//        		buffer.put( temp );
+        		
+        		++rIndex;
+        		++gIndex;
+        		++bIndex;
+        	}
+        	buffer.rewind();
+		}
+		public void run() {  
             while (!Thread.currentThread().isInterrupted()) {  
                 try {  
                     Thread.sleep(100);  

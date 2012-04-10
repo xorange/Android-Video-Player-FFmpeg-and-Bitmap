@@ -32,6 +32,7 @@ public class FFmpeg {
 	public native int getWidth();
 	public native int getHeight();
 	public native int getBitRate();
+	public native boolean allocateBuffer();
 	public native byte[] getNextDecodedFrame();
 	
 
@@ -80,11 +81,17 @@ public class FFmpeg {
         else {
         	Log.i("ff", "failed codec open");
         	return;
-        }
-    	
+        }    	
     	Log.i("ff", getCodecName());
     	
-    	avcodecAllocFrame();	
+    	avcodecAllocFrame();
+    	
+    	if( allocateBuffer() )
+    		Log.i("ff", "success allocate buffer");
+    	else {
+    		Log.i("ff", "failed allocate buffer");
+    		return;
+    	}
 	}
 	
 	public void openFile(String filePath) {
