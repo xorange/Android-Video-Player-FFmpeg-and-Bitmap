@@ -1,0 +1,18 @@
+Runnable android project. main entrance: UIActivity
+
+using FFmpeg and Bitmap to implement a media player.
+
+many features are NOT implemented. Only could play video stream.
+
+
+Some detail:
+java: getNextDecodedFrame()
+native: got the video stream bytes and return
+java: bytes -> buffer -> bitmap -> draw
+
+
+TODO:
+not to use Bitmap. use native method.
+OpenGL, even framebuffer.
+
+try using SDL2 and continue the failed attempt i've made earlier.
