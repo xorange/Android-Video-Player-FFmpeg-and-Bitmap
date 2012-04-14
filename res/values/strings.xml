@@ -3,5 +3,6 @@
 
     <string name="hello">Hello World, PlayerActivity!</string>
     <string name="app_name">Player</string>
+    <string name="playButton">OK</string>
 
 </resources>

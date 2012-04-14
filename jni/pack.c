@@ -31,6 +31,7 @@ int dstFmt = PIX_FMT_RGB565;
 
 struct SwsContext *img_convert_ctx;
 int width, height, bit_rate;
+int screenWidth, screenHeight;
 
 
 /*****************************************************/
@@ -142,6 +143,21 @@ void Java_sysu_ss_xu_FFmpeg_avcodecAllocFrame( JNIEnv* env, jobject thiz )
 	pFrame=avcodec_alloc_frame();
 }
 
+void Java_sysu_ss_xu_FFmpeg_avFree( JNIEnv* env, jobject thiz )
+{
+	av_free(pFrame);
+}
+
+void Java_sysu_ss_xu_FFmpeg_avcodecClose( JNIEnv* env, jobject thiz )
+{
+	avcodec_close(pCodecCtx);
+}
+
+void Java_sysu_ss_xu_FFmpeg_avCloseInputFile( JNIEnv* env, jobject thiz )
+{
+	av_close_input_file(pFormatCtx);
+}
+
 /*****************************************************/
 /* / FFmpeg API */
 /*****************************************************/
@@ -157,7 +173,7 @@ jstring Java_sysu_ss_xu_FFmpeg_getCodecName( JNIEnv* env, jobject thiz )
 
 jint Java_sysu_ss_xu_FFmpeg_getWidth( JNIEnv* env, jobject thiz )
 {
-	width = pCodecCtx->width; 
+	width = pCodecCtx->width;
 	return pCodecCtx->width;
 }
 
@@ -179,24 +195,33 @@ jboolean Java_sysu_ss_xu_FFmpeg_allocateBuffer( JNIEnv* env, jobject thiz )
 	pFrameRGB=avcodec_alloc_frame();
 	if(pFrameRGB==NULL)
 		return 0;
-
+sprintf(debugMsg, "%d %d", screenWidth, screenHeight);
+INFO(debugMsg);
 	// Determine required buffer size and allocate buffer
+	numBytes=avpicture_get_size(dstFmt, screenWidth, screenHeight);
+/*
 	numBytes=avpicture_get_size(dstFmt, pCodecCtx->width,
 			      pCodecCtx->height);
+*/
 	buffer=(uint8_t *)av_malloc(numBytes * sizeof(uint8_t));
 
 	// Assign appropriate parts of buffer to image planes in pFrameRGB
 	// Note that pFrameRGB is an AVFrame, but AVFrame is a superset
 	// of AVPicture
-	avpicture_fill((AVPicture *)pFrameRGB, buffer, dstFmt, pCodecCtx->width, pCodecCtx->height);
+	avpicture_fill((AVPicture *)pFrameRGB, buffer, dstFmt, screenWidth, screenHeight);
 
 	return 1;
+}
+
+void Java_sysu_ss_xu_FFmpeg_setScreenSize( JNIEnv* env, jobject thiz, int sWidth, int sHeight)
+{
+	screenWidth = sWidth;
+	screenHeight = sHeight;
 }
 
 /* for each decoded frame */
 jbyteArray Java_sysu_ss_xu_FFmpeg_getNextDecodedFrame( JNIEnv* env, jobject thiz )
 {
-INFO("next decoded frame");
 
 av_free_packet(&packet);
 
@@ -206,49 +231,16 @@ while(av_read_frame(pFormatCtx, &packet)>=0) {
 	
 		avcodec_decode_video2(pCodecCtx, pFrame, &frameFinished, &packet);
 
-		if(frameFinished) {
-INFO("got a frame");
+		if(frameFinished) {		
+
+		img_convert_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt, screenWidth, screenHeight, dstFmt, SWS_BICUBIC, NULL, NULL, NULL);
 
 /*
-		AVPicture pict;
-
-		pict.linesize[0] = width;
-		pict.linesize[1] = width;
-		pict.linesize[2] = width;
-
-		// tested ok, too. Yay!
-		uint8_t pixelData[ width * height * 3 ];
-	
-		pict.data[0] = &pixelData[ 0 ];
-		pict.data[1] = &pixelData[ width * height ];
-		pict.data[2] = &pixelData[ width * height * 2 ];
-		//pict.data[3] = &pixelData[ width * height * 3 ];
+img_convert_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, dstFmt, SWS_BICUBIC, NULL, NULL, NULL);
 */
-		
-
-		img_convert_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, dstFmt, SWS_BICUBIC, NULL, NULL, NULL);
 
 		sws_scale(img_convert_ctx, (const uint8_t* const*)pFrame->data, pFrame->linesize,
 	 0, pCodecCtx->height, pFrameRGB->data, pFrameRGB->linesize);
-
-/*
-		sprintf(debugMsg, "*(pict.data[0]) %d", *(pFrameRGB->data[0]));	
-		INFO(debugMsg);
-		sprintf(debugMsg, "*(pict.data[1]) %d", *(pFrameRGB->data[1]));	
-		INFO(debugMsg);
-		sprintf(debugMsg, "*(pict.data[2]) %d", *(pFrameRGB->data[2]));	
-		INFO(debugMsg);
-		sprintf(debugMsg, "*(pict.data[3]) %d", *(pFrameRGB->data[3]));	
-		INFO(debugMsg);
-		sprintf(debugMsg, "*(pict.linesize[0]) %d", pFrameRGB->linesize[0]);
-		INFO(debugMsg);
-		sprintf(debugMsg, "*(pict.linesize[1]) %d", pFrameRGB->linesize[1]);
-		INFO(debugMsg);
-		sprintf(debugMsg, "*(pict.linesize[2]) %d", pFrameRGB->linesize[2]);
-		INFO(debugMsg);
-		sprintf(debugMsg, "*(pict.linesize[3]) %d", pFrameRGB->linesize[3]);
-		INFO(debugMsg);
-*/
 
 ++frameCount;
 
@@ -262,6 +254,8 @@ INFO("got a frame");
 
 	av_free_packet(&packet);
 }
+
+return NULL;
 }
 
 /*****************************************************/

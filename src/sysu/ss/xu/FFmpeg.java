@@ -4,6 +4,8 @@ import android.util.Log;
 
 public class FFmpeg {
 	
+	private static FFmpeg singleton;
+	
 	static {
     	System.loadLibrary("ffmpeg");
         System.loadLibrary("pack");
@@ -26,6 +28,9 @@ public class FFmpeg {
 	public native boolean avcodecFindDecoder();
 	public native boolean avcodecOpen();
 	public native void avcodecAllocFrame();
+	public native void avFree();	  
+	public native void avcodecClose();	  
+	public native void avCloseInputFile();
 	
 	// functional call
 	public native String getCodecName();
@@ -33,7 +38,19 @@ public class FFmpeg {
 	public native int getHeight();
 	public native int getBitRate();
 	public native boolean allocateBuffer();
+	public native void setScreenSize(int sWidth, int sHeight);
 	public native byte[] getNextDecodedFrame();
+	
+	private FFmpeg() {
+		avRegisterAll();
+	}
+	
+	public static FFmpeg getInstance() {
+		if( singleton == null )
+			singleton = new FFmpeg();
+		
+		return singleton;
+	}
 	
 
 	public void playFile(String filePath) {
@@ -46,56 +63,70 @@ public class FFmpeg {
 		
 	}
 	
-	private void init(String filePath) {
-		avRegisterAll();
+	private boolean init(String filePath) {
+		
         if( avOpenInputFile(filePath) )
         	Log.i("ff", "success open");
         else {
         	Log.i("ff", "failed open");
-        	return;
+        	return false;
         }
         
         if( avFindStreamInfo() )
         	Log.i("ff", "success find stream info");
         else {
         	Log.i("ff", "failed find stream info");
-        	return;
+        	return false;
         }
         
         if( findVideoStream() )
         	Log.i("ff", "success find stream");
         else {
         	Log.i("ff", "failed find stream");
-        	return;
+        	return false;
         }
         
         if( avcodecFindDecoder() )
         	Log.i("ff", "success find decoder");
         else {
         	Log.i("ff", "failed find decoder");
-        	return;
+        	return false;
         }
         
     	if( avcodecOpen() )
     		Log.i("ff", "success codec open");
         else {
         	Log.i("ff", "failed codec open");
-        	return;
+        	return false;
         }    	
     	Log.i("ff", getCodecName());
     	
-    	avcodecAllocFrame();
-    	
-    	if( allocateBuffer() )
-    		Log.i("ff", "success allocate buffer");
-    	else {
-    		Log.i("ff", "failed allocate buffer");
-    		return;
-    	}
+    	return true;
 	}
 	
-	public void openFile(String filePath) {
-		init(filePath);
+	public void cleanUp() {
+		avFree();	  
+		avcodecClose();	  
+		avCloseInputFile();
+	}
+	
+	public boolean openFile(String filePath) {
+		return init(filePath);
+	}
+	
+	public boolean isMediaFile(String filePath) {
+		avRegisterAll();
+        if( avOpenInputFile(filePath) ) {
+        	avCloseInputFile();
+        	return true;
+        }
+        else
+        	return false;
+	}
+	public void prepareResources() {
+		avcodecAllocFrame();
+    	
+    	allocateBuffer();
 	}
 
 }
