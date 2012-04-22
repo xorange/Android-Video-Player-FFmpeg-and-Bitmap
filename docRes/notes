@@ -1,0 +1,21 @@
+a.mp4
+ipod.m4v
+mpeg2.m2v
+
+is LEGAL media file
+
+
+
+b.mp4 is a FAKE media file which is a text file with a ".mp4" suffix.
+
+
+auto orientation detect.
+slow.
+
+example videos are from apple.com
+
+a.mp4 is very big. so it's extremely slow.
+
+Run on Ubuntu11.10, eclipse, Android AVD at API Level 14(4.0).
+
+That's all.

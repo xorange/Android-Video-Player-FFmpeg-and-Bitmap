@@ -91,7 +91,7 @@ public class PlayerActivity extends Activity {
         	if(nativePixels != null) {
         		buffer = ByteBuffer.wrap(nativePixels);
             	bitmap.copyPixelsFromBuffer(buffer);
-        	}        	
+        	}
         	
             canvas.drawBitmap(bitmap, 0, 0, p);
         }

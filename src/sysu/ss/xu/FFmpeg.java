@@ -21,16 +21,16 @@ public class FFmpeg {
 	public native String play(String filePath);
 	
 	// ffmpeg api
-	public native void avRegisterAll();
-	public native boolean avOpenInputFile(String filePath);
-	public native boolean avFindStreamInfo();
-	public native boolean findVideoStream();
-	public native boolean avcodecFindDecoder();
-	public native boolean avcodecOpen();
-	public native void avcodecAllocFrame();
-	public native void avFree();	  
-	public native void avcodecClose();	  
-	public native void avCloseInputFile();
+	private native void avRegisterAll();
+	private native boolean avOpenInputFile(String filePath);
+	private native boolean avFindStreamInfo();
+	private native boolean findVideoStream();
+	private native boolean avcodecFindDecoder();
+	private native boolean avcodecOpen();
+	private native void avcodecAllocFrame();
+	private native void avFree();	  
+	private native void avcodecClose();	  
+	private native void avCloseInputFile();
 	
 	// functional call
 	public native String getCodecName();
